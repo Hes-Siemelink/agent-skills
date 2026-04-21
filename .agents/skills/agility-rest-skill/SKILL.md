@@ -16,14 +16,15 @@ description: Use when you need to query or manage Portfolio Items (Epics/Feature
 ### Asset Types
 | Asset Type | Description | Common Aliases |
 |---|---|---|
-| `Epic` | Portfolio Items (Epics, Features, Initiatives, Sub-Features) | Portfolio Item, PI |
-| `Story` | User stories / backlog items | Backlog Item |
 | `Defect` | Bugs / defects | Bug |
-| `Scope` | Projects / planning levels | Project |
-| `Team` | Teams within a scope | - |
-| `Timebox` | Sprints / iterations | Sprint, Iteration |
-| `Theme` | Themes / tags | Tag |
+| `Epic` | Portfolio Items (Epics, Features, Initiatives, Sub-Features) | Portfolio Item, PI |
 | `EpicCategory` | Category values for Epics | - |
+| `Request` | Change requests | - |
+| `Scope` | Projects / planning levels | Project |
+| `Story` | User stories / backlog items | Backlog Item |
+| `Team` | Teams within a scope | - |
+| `Theme` | Themes / tags | Tag |
+| `Timebox` | Sprints / iterations | Sprint, Iteration |
 
 ### Epic Categories
 Epics are distinguished by `Category.Name`. Known values:
@@ -54,6 +55,14 @@ Common Story/Defect status values in DevOps: `Done`, `DONE`, `Not Doing`, `To Do
 
 Common Epic/Sub-Feature status values: `Completed`, `In Progress`, `Review`, `Discovery`, `Breakdown`, `Not Doing`
 
+Common Request status values: `Reviewed`, `Approved`, `Rejected`, `Future Consideration`, `Need More Information`, `Not Planned`, `Aligns with upcoming Discovery projects`, `Already Supported`, `TRB - Idea`, `TRB - Discovery`, `TRB - Technology Review`, `TRB - Commitment`, `TRB - Alpha`, `TRB - Beta`, `TRB - GA`
+
+Request priority values: `Low`, `Medium`, `High`, `Must`, `Should`, `Could`, `Blocker`, `Critical`, `Major`, `Minor`, `Trivial`
+
+Request category values: `New Feature`, `Tweak`, `Question`, `Enhancement`, `Platform`, `Change`
+
+Request resolution reason values: `Implemented`, `Rejected`, `Supported`, `Move to Backlog`
+
 ### Key Relationships
 - `Epic.Super` -> parent Epic (for Epic-to-Epic hierarchy)
 - `Story.Super` / `Defect.Super` -> parent Epic
@@ -62,6 +71,12 @@ Common Epic/Sub-Feature status values: `Completed`, `In Progress`, `Review`, `Di
 - `Story.Timebox` / `Defect.Timebox` -> Sprint/Iteration
 - `Epic.Subs` -> child Epics (multi-value)
 - `Epic.ChildrenMeAndDown` -> all descendant stories/defects
+- `Request.Scope` -> owning Scope (planning level)
+- `Request.Owner` -> assigned Member
+- `Request.SpurredBy` -> Epic that triggered this Request
+- `Request.PrimaryWorkitems` -> linked Stories/Defects (multi-value)
+- `Request.Epics` -> linked Epics (multi-value)
+- `Request.Issues` -> linked Issues (multi-value)
 
 ### Cross-Scope Children (Critical)
 **Children (Stories/Defects) can live in a different Scope than their parent Epic.**
@@ -228,6 +243,20 @@ curl -s -H "Authorization: Bearer <token>" \
   "https://www7.v1host.com/V1Production/rest-1.v1/Data/Team?sel=Name&where=Scope.Name%3D%27DevOps%27&page=100,0"
 ```
 
+**Query Requests in a scope:**
+```bash
+curl -s -H "Authorization: Bearer <token>" \
+  -H "Accept: application/json" \
+  "https://www7.v1host.com/V1Production/rest-1.v1/Data/Request?sel=Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Scope.Name&where=Scope%3D%27Scope%3A1731677%27%3BAssetState!%3D%27255%27&sort=-ChangeDate&page=50,0"
+```
+
+**Query a single Request by number:**
+```bash
+curl -s -H "Authorization: Bearer <token>" \
+  -H "Accept: application/json" \
+  "https://www7.v1host.com/V1Production/rest-1.v1/Data/Request?sel=Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Description,Resolution,ResolutionReason.Name,Scope.Name,SpurredBy.Name,SpurredBy.Number&where=Number%3D%27R-12511%27"
+```
+
 ## UI URL Pattern
 
 ### Preferred: by display number (no OID lookup needed)
@@ -239,8 +268,9 @@ Examples:
 - Epic E-19550: `https://www7.v1host.com/V1Production/assetdetail.v1?number=E-19550`
 - Story S-125773: `https://www7.v1host.com/V1Production/assetdetail.v1?number=S-125773`
 - Defect D-42068: `https://www7.v1host.com/V1Production/assetdetail.v1?number=D-42068`
+- Request R-12511: `https://www7.v1host.com/V1Production/assetdetail.v1?number=R-12511`
 
-This pattern works for all asset types (Epics, Stories, Defects) and does not require an OID lookup. **Always prefer this pattern when generating UI links.**
+This pattern works for all asset types (Epics, Stories, Defects, Requests) and does not require an OID lookup. **Always prefer this pattern when generating UI links.**
 
 ### Alternative: by OID
 If you already have the OID from an API response, you can also link directly:
@@ -286,13 +316,16 @@ When an agent uses this skill, it should:
 - **Use OID references** for Scope, Super, Category relations (e.g., `Scope='Scope:1731677'`) for precision
 - **Use `Category.Name`** to distinguish Epic subtypes: `Category.Name='Epic'`, `Category.Name='Feature'`, etc.
 - **Check `Super=''`** to find orphaned Stories/Defects with no parent Epic
-- **Use `Number`** field for display-friendly IDs (e.g., E-19550, S-125773, D-45678)
+- **Use `Number`** field for display-friendly IDs (e.g., E-19550, S-125773, D-45678, R-12511)
 - **Use `assetdetail.v1?number=` URLs** for UI links (e.g., `assetdetail.v1?number=E-19550`) — no OID lookup needed
 - **Use `id`** field from response only when OID-based references are needed (e.g., for API relation filters like `Super='Epic:12345'`)
 - **Keep `limit` conservative** (20-50) unless bulk retrieval is needed
 - **URL-encode `where` clauses** in curl — single quotes become `%27`, semicolons become `%3B`, equals becomes `%3D`, spaces become `+`
 - **For creation**, always set `Scope` explicitly — it is NOT inherited from parent
 - **For Epics/Features**, set `Category` to the correct `EpicCategory` OID (e.g., `EpicCategory:148` for Feature)
+- **For Requests**, recommended `sel` fields are: `Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Scope.Name` — add `Description,Resolution,ResolutionReason.Name,SpurredBy.Name,SpurredBy.Number` when detail is needed
+- **Requests use `Scope` not `Super`** — unlike Stories/Defects they do not have a parent Epic hierarchy; link to Epics via `SpurredBy` (single) or `Epics` (multi-value)
+- **Request status is separate from resolution** — `Status` tracks workflow state (Approved, Rejected, etc.); `ResolutionReason` records how it was closed (Implemented, Supported, etc.); check both when assessing outcome
 - **Use `Super.Scope` for cross-scope children queries** — children often live in different scopes than their parent Epic. Filter on `Super.Scope='Scope:...'` instead of `Scope='Scope:...'` to get all children regardless of their own scope
 - **Distinguish Status from Asset State** — a Story with Status="Done" and AssetState=Active is finished work not yet formally closed. Check both fields when assessing completion
 - **Include `Accept: application/json` header on POST requests** — without it, the response may be empty or XML
@@ -326,6 +359,64 @@ Alphas, Apollo, Dry Bones, FI Deploy, Integrations, Judo, Lambdas, Leonardo, Mar
 | `EpicStatus:559703` | Discovery |
 | `EpicStatus:1905275` | Breakdown |
 | `EpicStatus:2200973` | Not Doing |
+
+### Known Request Lookup OIDs
+
+**RequestStatus**
+
+| OID | Name |
+|---|---|
+| `RequestStatus:170` | Reviewed |
+| `RequestStatus:171` | Approved |
+| `RequestStatus:172` | Rejected |
+| `RequestStatus:1651461` | Future Consideration |
+| `RequestStatus:1651810` | Need More Information |
+| `RequestStatus:1655799` | Not Planned |
+| `RequestStatus:1655800` | Aligns with upcoming Discovery projects |
+| `RequestStatus:1655805` | Already Supported |
+| `RequestStatus:2588718` | TRB - Idea |
+| `RequestStatus:2588725` | TRB - Discovery |
+| `RequestStatus:2588728` | TRB - Technology Review |
+| `RequestStatus:2588729` | TRB - Commitment |
+| `RequestStatus:2588730` | TRB - Alpha |
+| `RequestStatus:2588731` | TRB - Beta |
+| `RequestStatus:2588732` | TRB - GA |
+
+**RequestPriority**
+
+| OID | Name |
+|---|---|
+| `RequestPriority:167` | Low |
+| `RequestPriority:168` | Medium |
+| `RequestPriority:169` | High |
+| `RequestPriority:1652662` | Must |
+| `RequestPriority:1652663` | Could |
+| `RequestPriority:1652664` | Should |
+| `RequestPriority:1905260` | Blocker |
+| `RequestPriority:1905261` | Critical |
+| `RequestPriority:1905262` | Major |
+| `RequestPriority:1905263` | Minor |
+| `RequestPriority:1905264` | Trivial |
+
+**RequestCategory**
+
+| OID | Name |
+|---|---|
+| `RequestCategory:173` | New Feature |
+| `RequestCategory:174` | Tweak |
+| `RequestCategory:175` | Question |
+| `RequestCategory:29226` | Enhancement |
+| `RequestCategory:29227` | Platform |
+| `RequestCategory:3288539` | Change |
+
+**RequestResolution**
+
+| OID | Name |
+|---|---|
+| `RequestResolution:185` | Implemented |
+| `RequestResolution:186` | Rejected |
+| `RequestResolution:1470086` | Supported |
+| `RequestResolution:2582763` | Move to Backlog |
 
 ## Output
 Success prints JSON:
