@@ -247,7 +247,7 @@ curl -s -H "Authorization: Bearer <token>" \
 ```bash
 curl -s -H "Authorization: Bearer <token>" \
   -H "Accept: application/json" \
-  "https://www7.v1host.com/V1Production/rest-1.v1/Data/Request?sel=Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Scope.Name&where=Scope%3D%27Scope%3A1731677%27%3BAssetState!%3D%27255%27&sort=-ChangeDate&page=50,0"
+  "https://www7.v1host.com/V1Production/rest-1.v1/Data/Request?sel=Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Scope.Name,TaggedWith&where=Scope%3D%27Scope%3A1731677%27%3BAssetState!%3D%27255%27&sort=-ChangeDate&page=50,0"
 ```
 
 **Query a single Request by number:**
@@ -323,9 +323,10 @@ When an agent uses this skill, it should:
 - **URL-encode `where` clauses** in curl — single quotes become `%27`, semicolons become `%3B`, equals becomes `%3D`, spaces become `+`
 - **For creation**, always set `Scope` explicitly — it is NOT inherited from parent
 - **For Epics/Features**, set `Category` to the correct `EpicCategory` OID (e.g., `EpicCategory:148` for Feature)
-- **For Requests**, recommended `sel` fields are: `Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Scope.Name` — add `Description,Resolution,ResolutionReason.Name,SpurredBy.Name,SpurredBy.Number` when detail is needed
+- **For Requests**, recommended `sel` fields are: `Name,Number,Status.Name,Priority.Name,Category.Name,Owner.Name,RequestedBy,Scope.Name,TaggedWith` — add `Description,Resolution,ResolutionReason.Name,SpurredBy.Name,SpurredBy.Number` when detail is needed
 - **Requests use `Scope` not `Super`** — unlike Stories/Defects they do not have a parent Epic hierarchy; link to Epics via `SpurredBy` (single) or `Epics` (multi-value)
 - **Request status is separate from resolution** — `Status` tracks workflow state (Approved, Rejected, etc.); `ResolutionReason` records how it was closed (Implemented, Supported, etc.); check both when assessing outcome
+- **`TaggedWith` is useful for filtering Requests** — tags like `access request`, `devops-release` are used in practice; filter with `TaggedWith='access request'` or include in `sel` for display
 - **Use `Super.Scope` for cross-scope children queries** — children often live in different scopes than their parent Epic. Filter on `Super.Scope='Scope:...'` instead of `Scope='Scope:...'` to get all children regardless of their own scope
 - **Distinguish Status from Asset State** — a Story with Status="Done" and AssetState=Active is finished work not yet formally closed. Check both fields when assessing completion
 - **Include `Accept: application/json` header on POST requests** — without it, the response may be empty or XML
